@@ -1,10 +1,9 @@
 // Firebase SDK (modular, via CDN).
-// Uses FIREBASE_CONFIG from ./firebase-config.js and forces a network mode that
-// works behind proxies/VPNs/ad-blockers that break Firestore streaming.
+// Force robust long-polling transport to avoid 'Listen 400' issues behind proxies/VPNs.
 import { FIREBASE_CONFIG } from './firebase-config.js';
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js";
 import {
-  initializeFirestore, // NOTE: use initializeFirestore to pass transport options
+  initializeFirestore, // allows transport options
   doc, getDoc, setDoc, addDoc, collection, serverTimestamp,
   query, orderBy, getDocs, runTransaction
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js";
@@ -14,22 +13,20 @@ import {
 
 export const IS_CONFIGURED = !!FIREBASE_CONFIG?.apiKey;
 
-// Initialize core app
 export const app = initializeApp(FIREBASE_CONFIG);
 
-// Initialize Firestore with robust transport settings.
-// experimentalAutoDetectLongPolling: true -> avoids the 'Listen' 400 spam behind some proxies/CDNs.
-// You can switch to experimentalForceLongPolling: true if your environment still blocks streams.
+// Hard-force long polling to eliminate streaming attempts that often cause
+// 400 spam and multi-second fallbacks. If you prefer auto detection, change
+// experimentalForceLongPolling -> false and set experimentalAutoDetectLongPolling -> true.
 export const db = initializeFirestore(app, {
-  experimentalAutoDetectLongPolling: true,
-  // experimentalForceLongPolling: true, // <- uncomment to hard-force long polling
-  // experimentalLongPollingOptions: { timeoutSeconds: 30 } // optional tweak
+  experimentalForceLongPolling: true,
+  experimentalAutoDetectLongPolling: false,
+  // experimentalLongPollingOptions: { timeoutSeconds: 30 },
+  ignoreUndefinedProperties: true
 });
 
-// Auth (kept minimal; you can wire Google sign-in later)
 export const auth = getAuth(app);
 
-// Re-export helpers for the rest of the app
 export {
   GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut,
   doc, getDoc, setDoc, addDoc, collection, serverTimestamp, query, orderBy, getDocs, runTransaction
