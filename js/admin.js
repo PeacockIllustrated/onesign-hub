@@ -334,7 +334,8 @@ function renderQuotes(){
           <div class="small mono">${q.number}</div>
         </div>
         <div class="kpi">${fmtGBP(q.totals.grandTotal)}</div>
-        <a class="btn" href="../customer.html#share=${encodeURIComponent(q.id)}">open →</a>
+        <a class="btn" href="../customer.html#share=${encodeURIComponent(q.shareToken || q.id)}">open →</a>
+
       </div>`;
       wrap.appendChild(c);
     });
