@@ -1,7 +1,4 @@
-// Rename this file to firebase-config.js and paste your real config values.
-//
-// Example from Firebase console -> Project settings -> "Your apps" -> Config:
-const firebaseConfig = {
+export const FIREBASE_CONFIG = {
   apiKey: "AIzaSyCEQEgNrOxE-iCZZLURnebbowQgO2XSuqk",
   authDomain: "onesign-hub.firebaseapp.com",
   projectId: "onesign-hub",
