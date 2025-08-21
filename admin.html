@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneSign Hub — Admin</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="appbar">
+    <div class="appbar-inner">
+      <div class="logo">
+        <div class="logo-badge">1</div>
+        <div class="logo-word">onesign admin</div>
+      </div>
+      <nav class="hstack">
+        <a class="btn ghost" href="./customer.html">customer</a>
+        <a class="btn primary" href="#pricebook">price book</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container stack">
+    <section id="route-home" class="stack">
+      <div class="grid grid-3">
+        <div class="card">
+          <div class="card-header">Welcome</div>
+          <div class="card-body stack">
+            <p>This admin is a vanilla HTML/CSS/JS “one-shot”. It includes a <b>Price Book</b> editor and a <b>Simulator</b>. Publishing creates a new version; customer calculations use the latest published version instantly.</p>
+            <a class="btn accent" href="#pricebook">open price book →</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Quick links</div>
+          <div class="card-body stack">
+            <a class="btn ghost" href="#simulator">simulator</a>
+            <a class="btn ghost" href="#quotes">quotes</a>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">Version</div>
+          <div class="card-body">
+            <div>Current published version: <b id="pb-version">1</b></div>
+            <div class="small">Draft is stored locally in your browser for this demo.</div>
+          </div>
+          <div class="card-footer hstack">
+            <button id="btn-new-draft" class="btn">edit draft</button>
+            <button id="btn-publish" class="btn primary" disabled>publish</button>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="route-pricebook" class="hide stack">
+      <h2>Price Book</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">Labour & Logistics</div>
+          <div class="card-body stack" id="labour-form"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Rules</div>
+          <div class="card-body stack" id="rules-form"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Materials</div>
+        <div class="card-body">
+          <table class="table" id="materials-table"></table>
+          <div class="card-footer"><button id="add-material" class="btn">add material</button></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-header">Machines</div>
+        <div class="card-body">
+          <table class="table" id="machines-table"></table>
+          <div class="card-footer"><button id="add-machine" class="btn">add machine</button></div>
+        </div>
+      </div>
+    </section>
+    <section id="route-simulator" class="hide stack">
+      <h2>Simulator</h2>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-header">Inputs</div>
+          <div class="card-body stack" id="sim-form"></div>
+        </div>
+        <div class="card">
+          <div class="card-header">Output</div>
+          <div class="card-body stack">
+            <div id="sim-total" class="kpi">£0.00</div>
+            <div id="sim-breakdown" class="small mono"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section id="route-quotes" class="hide stack">
+      <h2>Quotes (demo, local)</h2>
+      <div id="quotes-list" class="stack"></div>
+    </section>
+  </main>
+  <div class="toast"></div>
+  <script type="module" src="./js/admin.js"></script>
+</body>
+</html>

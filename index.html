@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OneSign Hub — Demo</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="appbar">
+    <div class="appbar-inner">
+      <div class="logo">
+        <div class="logo-badge">1</div>
+        <div class="logo-word">onesign hub</div>
+      </div>
+      <nav class="hstack">
+        <a class="btn ghost" href="./customer.html">customer</a>
+        <a class="btn primary" href="./admin.html">admin</a>
+      </nav>
+    </div>
+  </header>
+  <main class="container stack center" style="min-height:60vh">
+    <div class="stack center">
+      <h1>Choose an app</h1>
+      <div class="hstack">
+        <a class="btn" href="./customer.html">Customer quoting →</a>
+        <a class="btn primary" href="./admin.html">Admin console →</a>
+      </div>
+    </div>
+  </main>
+  <script type="module">
+    import './js/common.js'; import './js/pricebook.js'; import './js/api.js';
+  </script>
+</body>
+</html>
