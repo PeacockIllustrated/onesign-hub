@@ -1,12 +1,30 @@
 import { store, uid, nowIso } from './common.js';
+import { db, doc, getDoc, setDoc, addDoc, collection, serverTimestamp, query, orderBy, getDocs, runTransaction } from './firebase.js';
 import { priceBook } from './pricebook.js';
 
 export const api = {
-  async latestPublishedPriceBookMeta(){ return priceBook.meta(); },
+  async latestPublishedPriceBookMeta(){
+    try{
+      const snap = await getDoc(doc(db, 'pricebook', 'published'));
+      if(snap.exists()){
+        const pb = snap.data();
+        return { version: pb.version, productPresets: pb.productPresets };
+      }
+    }catch(e){ /* fallback to local */ }
+    return priceBook.meta();
+  },
+
+  async _getCurrentPB(){
+    try{
+      const snap = await getDoc(doc(db, 'pricebook', 'published'));
+      if(snap.exists()) return snap.data();
+    }catch(e){}
+    return priceBook.current();
+  },
 
   async calculateQuote(body){
     const { productType, inputs } = body;
-    const pb = priceBook.current();
+    const pb = await this._getCurrentPB();
     const calc = calculators[productType];
     if(!calc) throw new Error('Unsupported productType');
     const res = calc(pb, inputs);
@@ -16,32 +34,82 @@ export const api = {
   async createCustomerQuote({ productType, inputs, clientMeta }){
     const { breakdown, totals, validatedInputs } = await this.calculateQuote({productType, inputs});
     const id = uid('Q-') + '-' + Date.now();
-    const shareToken = uid('share-');
+    const shareToken = uid('share-') + Date.now();
     const record = {
       id, number: id, status:'sent',
-      priceBookVersion: priceBook.version(),
+      priceBookVersion: (await this.latestPublishedPriceBookMeta()).version || priceBook.version(),
       productType, inputs: validatedInputs, breakdown, totals,
       clientMeta: clientMeta || null, createdAt: nowIso(), shareToken
     };
-    store.set('quote:'+id, record);
-    const shareUrl = `${location.origin}${location.pathname.replace('admin.html','customer.html')}#share=${encodeURIComponent(id)}`;
+    // Firestore write
+    try{
+      const docRef = await addDoc(collection(db,'quotes'), Object.assign({}, record, { createdAt: serverTimestamp() }));
+      await setDoc(doc(db,'shares', shareToken), { quoteId: docRef.id, createdAt: serverTimestamp() });
+      // local fallback copy
+      store.set('quote:'+id, record);
+    }catch(e){
+      // fallback entirely to local if offline
+      store.set('quote:'+id, record);
+    }
+    const shareUrl = `${location.origin}${location.pathname.replace('admin.html','customer.html')}#share=${encodeURIComponent(shareToken)}`;
     return { quoteId:id, shareUrl };
   },
 
-  async fetchSharedQuote(id){
-    return store.get('quote:'+id, null);
+  async fetchSharedQuote(tokenOrId){
+    // Prefer token flow -> shares/{token} -> quotes/{id}
+    if(typeof tokenOrId === 'string' && tokenOrId.startsWith('share-')){
+      try{
+        const shareSnap = await getDoc(doc(db,'shares', tokenOrId));
+        if(shareSnap.exists()){
+          const { quoteId } = shareSnap.data();
+          const qSnap = await getDoc(doc(db,'quotes', quoteId));
+          if(qSnap.exists()) return qSnap.data();
+        }
+      }catch(e){ /* fall through */ }
+      // last resort: local by exact id (dev)
+      return store.get('quote:'+tokenOrId, null);
+    }
+    // legacy path: direct quote id
+    try{
+      const qSnap = await getDoc(doc(db,'quotes', tokenOrId));
+      if(qSnap.exists()) return qSnap.data();
+    }catch(e){}
+    return store.get('quote:'+tokenOrId, null);
   },
 
   async listQuotes(){
-    const keys = Object.keys(localStorage).filter(k=>k.startsWith('quote:'));
-    return keys.map(k=>store.get(k)).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+    try{
+      const qy = query(collection(db,'quotes'), orderBy('createdAt','desc'));
+      const snap = await getDocs(qy);
+      return snap.docs.map(d=> Object.assign({ id: d.id }, d.data()));
+    }catch(e){
+      const keys = Object.keys(localStorage).filter(k=>k.startsWith('quote:'));
+      return keys.map(k=>store.get(k)).sort((a,b)=> (b.createdAt||'').localeCompare(a.createdAt||''));
+    }
   },
 
   async publishPriceBook(){
-    const v = priceBook.publish();
-    return { version: v };
+    // Take current local draft, publish to Firestore with version bump
+    const draft = priceBook.draft();
+    let newVersion = draft.version || 1;
+    try{
+      await runTransaction(db, async (txn)=>{
+        const pubRef = doc(db,'pricebook','published');
+        const cur = await txn.get(pubRef);
+        const curV = cur.exists() ? (cur.data().version||1) : 1;
+        newVersion = curV + 1;
+        const published = Object.assign({}, draft, { status:'published', version:newVersion, publishedAt: new Date().toISOString() });
+        txn.set(pubRef, published);
+      });
+      return { version: newVersion };
+    }catch(e){
+      // fallback to local publish if Firestore not available
+      const v = priceBook.publish();
+      return { version: v };
+    }
   }
 };
+
 
 // ---- Calculators ----
 const GBP = (n) => Math.round(n);
