@@ -1,11 +1,16 @@
 import { store, uid, nowIso } from './common.js';
-import { db, doc, getDoc, setDoc, addDoc, collection, serverTimestamp, query, orderBy, getDocs, runTransaction } from './firebase.js';
+import { IS_CONFIGURED, db, doc, getDoc, setDoc, addDoc, collection, serverTimestamp, query, orderBy, getDocs, runTransaction } from './firebase.js';
 import { priceBook } from './pricebook.js';
+
+function withTimeout(promise, ms){
+  let t; const timeout = new Promise((_,rej)=> t=setTimeout(()=>rej(new Error('TIMEOUT')), ms));
+  return Promise.race([promise.finally(()=>clearTimeout(t)), timeout]);
+}
 
 export const api = {
   async latestPublishedPriceBookMeta(){
-    try{
-      const snap = await getDoc(doc(db, 'pricebook', 'published'));
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
+      const snap = await withTimeout(getDoc(doc(db, 'pricebook', 'published')), 1500);
       if(snap.exists()){
         const pb = snap.data();
         return { version: pb.version, productPresets: pb.productPresets };
@@ -15,8 +20,8 @@ export const api = {
   },
 
   async _getCurrentPB(){
-    try{
-      const snap = await getDoc(doc(db, 'pricebook', 'published'));
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
+      const snap = await withTimeout(getDoc(doc(db, 'pricebook', 'published')), 1500);
       if(snap.exists()) return snap.data();
     }catch(e){}
     return priceBook.current();
@@ -42,13 +47,13 @@ export const api = {
       clientMeta: clientMeta || null, createdAt: nowIso(), shareToken
     };
     // Firestore write
-    try{
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
       const docRef = await addDoc(collection(db,'quotes'), Object.assign({}, record, { createdAt: serverTimestamp() }));
       await setDoc(doc(db,'shares', shareToken), { quoteId: docRef.id, createdAt: serverTimestamp() });
-      // local fallback copy
+      // local mirror for offline UX
       store.set('quote:'+id, record);
     }catch(e){
-      // fallback entirely to local if offline
+      // offline/local fallback
       store.set('quote:'+id, record);
     }
     const shareUrl = `${location.origin}${location.pathname.replace('admin.html','customer.html')}#share=${encodeURIComponent(shareToken)}`;
@@ -58,11 +63,11 @@ export const api = {
   async fetchSharedQuote(tokenOrId){
     // Prefer token flow -> shares/{token} -> quotes/{id}
     if(typeof tokenOrId === 'string' && tokenOrId.startsWith('share-')){
-      try{
-        const shareSnap = await getDoc(doc(db,'shares', tokenOrId));
+      try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
+        const shareSnap = await withTimeout(getDoc(doc(db,'shares', tokenOrId)), 1500);
         if(shareSnap.exists()){
           const { quoteId } = shareSnap.data();
-          const qSnap = await getDoc(doc(db,'quotes', quoteId));
+          const qSnap = await withTimeout(getDoc(doc(db,'quotes', quoteId)), 1500);
           if(qSnap.exists()) return qSnap.data();
         }
       }catch(e){ /* fall through */ }
@@ -70,17 +75,17 @@ export const api = {
       return store.get('quote:'+tokenOrId, null);
     }
     // legacy path: direct quote id
-    try{
-      const qSnap = await getDoc(doc(db,'quotes', tokenOrId));
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
+      const qSnap = await withTimeout(getDoc(doc(db,'quotes', tokenOrId)), 1500);
       if(qSnap.exists()) return qSnap.data();
     }catch(e){}
     return store.get('quote:'+tokenOrId, null);
   },
 
   async listQuotes(){
-    try{
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
       const qy = query(collection(db,'quotes'), orderBy('createdAt','desc'));
-      const snap = await getDocs(qy);
+      const snap = await withTimeout(getDocs(qy), 1500);
       return snap.docs.map(d=> Object.assign({ id: d.id }, d.data()));
     }catch(e){
       const keys = Object.keys(localStorage).filter(k=>k.startsWith('quote:'));
@@ -92,7 +97,7 @@ export const api = {
     // Take current local draft, publish to Firestore with version bump
     const draft = priceBook.draft();
     let newVersion = draft.version || 1;
-    try{
+    try{ if(!IS_CONFIGURED) throw new Error('NO_FB');
       await runTransaction(db, async (txn)=>{
         const pubRef = doc(db,'pricebook','published');
         const cur = await txn.get(pubRef);
