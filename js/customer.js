@@ -1,3 +1,4 @@
+
 import { $, $$, onRoute, toast, fmtGBP } from './common.js';
 import { api } from './api.js';
 
@@ -252,6 +253,13 @@ $('#save-quote').addEventListener('click', async ()=>{
   location.hash = 'share='+encodeURIComponent(quoteId);
 });
 
+async function ensurePresetsLoaded(){ 
+  if(!presets || presets.length===0){ 
+    try{ const meta = await api.latestPublishedPriceBookMeta(); presets = meta.productPresets||[]; } catch(e){ presets=[]; }
+  }
+  return presets;
+}
+
 // Router
 onRoute({
   'home':{},
@@ -260,9 +268,15 @@ onRoute({
     presets = meta.productPresets;
     renderProducts();
   }},
-  'estimate':{ match:(h)=>h.startsWith('estimate:'), enter: (hash)=>{
+  'estimate':{ match:(h)=>h.startsWith('estimate:'), enter: async (hash)=>{
+    await ensurePresetsLoaded();
     const type = hash.split(':')[1]; currentProduct = type;
     const preset = presets.find(p=>p.type===type);
+    if(!preset){
+      toast('Unknown product — choose from the list');
+      location.hash = 'products';
+      return;
+    }
     $('#est-title').textContent = preset ? preset.label : 'Estimate';
     renderForm(type);
   }},
